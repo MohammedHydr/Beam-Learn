@@ -1,6 +1,5 @@
-
 package piplelines;
-
+import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -10,6 +9,7 @@ import org.apache.beam.sdk.options.*;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.log4j.BasicConfigurator;
 
 import java.util.*;
 
@@ -18,14 +18,16 @@ import static helpers.UrlService.getQueryMap;
 public class RequestsAnalysisPipeline {
 
     public static void main(String[] args) {
+        BasicConfigurator.configure();
         Requests options =
                 PipelineOptionsFactory.fromArgs(args).withValidation().as(Requests.class);
+//        run(options);
+//        options.setProject("cognativex-intern");
+//        options.setRegion("us-central1");
+//        options.setStagingLocation("gs://cx_intern/binaries/");
+//        options.setGcpTempLocation("gs://cx_intern/temp/");
+//        options.setRunner(DataflowRunner.class);
 
-        run(options);
-    }
-
-
-    static void run(Requests options) {
         // Create a PipelineOptions object that reads TextIO and write a TextIO and apply the transform DoFn and widgets class
         Pipeline p = Pipeline.create(options);
         p
@@ -35,11 +37,17 @@ public class RequestsAnalysisPipeline {
                 .apply("WriteCounts", TextIO.write().to(options.getOutput()));
 
 
-        p.run().waitUntilFinish();
+        p.run();
+    }
+
+    static PCollection<KV<String, Iterable<String>>> applyTransform(PCollection<String> input) {
+        return input
+                .apply(ParDo.of(new ParseUrl()))
+                .apply(org.apache.beam.sdk.transforms.GroupByKey.create());
     }
 
     //output and input add in run configurations
-    public interface Requests extends PipelineOptions {
+    public interface Requests extends DataflowPipelineOptions {
         @Description("File path")
         @Validation.Required
         String getInput();
@@ -75,7 +83,7 @@ public class RequestsAnalysisPipeline {
         }
     }
 
-// call the ParseToJson and ParseUrl to transform the json string using class widget
+    // call the ParseToJson and ParseUrl to transform the json string using class widget
     public static class Widgets
             extends PTransform<PCollection<String>, PCollection<KV<String, Iterable<String>>>> {
         @Override
@@ -86,7 +94,7 @@ public class RequestsAnalysisPipeline {
         }
     }
 
-// get the url from the http from json file
+    // get the url from the http from json file
     static class ParseToJson extends DoFn<String, String> {
         @ProcessElement
         public void processElement(@Element String element, OutputReceiver<String> property) {
@@ -103,7 +111,7 @@ public class RequestsAnalysisPipeline {
         }
     }
 
-// parse the url using getQueryMap method to separate the url and store them in Map<String,String>
+    // parse the url using getQueryMap method to separate the url and store them in Map<String,String>
 // then output a KV(ref of the url, widget key wky)
     static class ParseUrl extends DoFn<String, KV<String, String>> {
         @ProcessElement
@@ -122,12 +130,4 @@ public class RequestsAnalysisPipeline {
             }
         }
     }
-
-
-    static PCollection<KV<String, Iterable<String>>> applyTransform(PCollection<String> input) {
-        return input
-                .apply(ParDo.of(new ParseUrl()))
-                .apply(org.apache.beam.sdk.transforms.GroupByKey.create());
-    }
-
 }
