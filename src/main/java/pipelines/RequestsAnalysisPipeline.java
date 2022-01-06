@@ -1,4 +1,4 @@
-package piplelines;
+package pipelines;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -15,18 +15,35 @@ import java.util.*;
 
 import static helpers.UrlService.getQueryMap;
 
+/**
+ * An example that reads http requests from json file, and counts the number of the requests in each country.
+ *
+ *
+ * <p>Note: Before running this example, you must create a BigQuery dataset to contain your output
+ * table.
+ *
+ * <p>To execute this pipeline locally, specify the BigQuery table for the output with the form:
+ *
+ * <pre>{@code
+ * --output=YOUR_PROJECT_ID:DATASET_ID.TABLE_ID // cognativex-intern:analysis.location
+ * The input is a local file:
+ * --input=requests_2021_12_22.json
+ * }</pre>
+ *
+ * <p>To change the runner, specify:
+ *
+ * <pre>{@code
+ * --runner=YOUR_SELECTED_RUNNER
+ * }</pre>
+ *
+ *
+ */
 public class RequestsAnalysisPipeline {
 
     public static void main(String[] args) {
         BasicConfigurator.configure();
         Requests options =
                 PipelineOptionsFactory.fromArgs(args).withValidation().as(Requests.class);
-//        run(options);
-//        options.setProject("cognativex-intern");
-//        options.setRegion("us-central1");
-//        options.setStagingLocation("gs://cx_intern/binaries/");
-//        options.setGcpTempLocation("gs://cx_intern/temp/");
-//        options.setRunner(DataflowRunner.class);
 
         // Create a PipelineOptions object that reads TextIO and write a TextIO and apply the transform DoFn and widgets class
         Pipeline p = Pipeline.create(options);

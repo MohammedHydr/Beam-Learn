@@ -15,7 +15,7 @@ public class UrlService {
                 String value = ar[1];
                 map.put(name, value);
             } else
-                System.out.println("Error in getquerymap " + query);
+                System.out.println("Error in getQueryMap " + query);
         }
         return map;
     }
