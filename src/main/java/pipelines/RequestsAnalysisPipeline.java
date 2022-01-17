@@ -42,8 +42,8 @@ public class RequestsAnalysisPipeline {
 
     public static void main(String[] args) {
         BasicConfigurator.configure();
-        Requests options =
-                PipelineOptionsFactory.fromArgs(args).withValidation().as(Requests.class);
+        RequestsDataflow options =
+                PipelineOptionsFactory.fromArgs(args).withValidation().as(RequestsDataflow.class);
 
         // Create a PipelineOptions object that reads TextIO and write a TextIO and apply the transform DoFn and widgets class
         Pipeline p = Pipeline.create(options);
@@ -64,7 +64,7 @@ public class RequestsAnalysisPipeline {
     }
 
     //output and input add in run configurations
-    public interface Requests extends DataflowPipelineOptions {
+    public interface RequestsDataflow extends DataflowPipelineOptions {
         @Description("File path")
         @Validation.Required
         String getInput();
