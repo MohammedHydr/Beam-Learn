@@ -19,7 +19,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.log4j.BasicConfigurator;
-import pipelines.steps.ParseJsonRequestsFn;
+import pipelines.steps.ParseJsonRequests;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -97,7 +97,7 @@ public class LocationToBigQueryIOPipeline {
             extends PTransform<PCollection<String>, PCollection<KV<String, Long>>> {
         @Override
         public PCollection<KV<String, Long>> expand(PCollection<String> httpRequest) {
-            PCollection<String> Country = httpRequest.apply(ParDo.of(new ParseJsonRequestsFn()))
+            PCollection<String> Country = httpRequest.apply(ParDo.of(new ParseJsonRequests()))
                     .apply(ParDo.of(new IpToLocationFn()));
             PCollection<KV<String, Long>> CountryCount = Country.apply(Count.perElement());
             return CountryCount;
@@ -108,7 +108,6 @@ public class LocationToBigQueryIOPipeline {
      * Convert the ip to location by calling the getLocation Fn
      */
     static class IpToLocationFn extends DoFn<RequestJson, String> {
-
         @ProcessElement
         public void processElement(@Element RequestJson requestJson, OutputReceiver<String> location) {
             if (requestJson != null) {

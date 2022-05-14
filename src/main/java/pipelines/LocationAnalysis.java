@@ -11,7 +11,7 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import pipelines.steps.ParseJsonRequestsFn;
+import pipelines.steps.ParseJsonRequests;
 import static helpers.LocateIP.getLocation;
 
 public class LocationAnalysis {
@@ -38,7 +38,7 @@ public class LocationAnalysis {
             extends PTransform<PCollection<String>, PCollection<KV<String, Long>>> {
         @Override
         public PCollection<KV<String, Long>> expand(PCollection<String> httpRequest) {
-            PCollection<String> Country = httpRequest.apply(ParDo.of(new ParseJsonRequestsFn())).apply(ParDo.of(new Countries()));
+            PCollection<String> Country = httpRequest.apply(ParDo.of(new ParseJsonRequests())).apply(ParDo.of(new Countries()));
             PCollection<KV<String, Long>> CountryCount = Country.apply(Count.perElement());
             return CountryCount;
         }

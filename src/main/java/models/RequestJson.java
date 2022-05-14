@@ -4,8 +4,6 @@ import org.apache.avro.reflect.Nullable;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.DefaultCoder;
 
-import java.util.Objects;
-
 @DefaultCoder(AvroCoder.class)
 
 public class RequestJson {
@@ -39,18 +37,5 @@ public class RequestJson {
 
     public String getWidgetKey() {
         return widgetKey;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        RequestJson that = (RequestJson) o;
-        return Objects.equals(ip, that.ip) && Objects.equals(url, that.url) && Objects.equals(domain, that.domain) && Objects.equals(widgetKey, that.widgetKey);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(ip, url, domain, widgetKey);
     }
 }

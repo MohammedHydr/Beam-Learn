@@ -1,79 +1,88 @@
 package pipelines;
 
-import com.maxmind.geoip2.model.CityResponse;
-import models.RequestJson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import models.RequestModel;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.log4j.BasicConfigurator;
+import java.util.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static helpers.JsonToRequest.Parse;
 import static helpers.LocateIP.getLocation;
+import static helpers.UrlService.getQueryMap;
+
 
 public class DomainLocationPipeline {
     public static void main(String[] args) {
-        BasicConfigurator.configure();
         RequestsOptions options =
                 PipelineOptionsFactory.fromArgs(args).withValidation().as(RequestsOptions.class);
 
         run(options);
     }
-
     static void run(RequestsOptions options) {
+        // Create a PipelineOptions object that reads TextIO and write a TextIO and apply the transform DoFn and widgets class
         Pipeline p = Pipeline.create(options);
-        p
-                .apply("ReadLines", TextIO.read().from(options.getInput()))
-                .apply(new DomainWidgetLocation())
-                .apply(ParDo.of(new FormatAsTextFn()))
-                .apply("WriteCounts", TextIO.write().to(options.getOutput()));
+//        p
+//                .apply("ReadLines", TextIO.read().from(options.getInput()))
+//                .
+//                .apply("WriteCounts", TextIO.write().to(options.getOutput()));
 
 
         p.run().waitUntilFinish();
     }
 
-    static PCollection<KV<String, Iterable<RequestModel>>> applyTransform(PCollection<RequestModel> input) {
-        return input
-                .apply(ParDo.of(new RequestModelKey()))
-                .apply(org.apache.beam.sdk.transforms.GroupByKey.create());
+    public static String getUrl (String element){
+        if (element != null && element != "") {
+            JsonObject jsonObject = new JsonParser().parse(element).getAsJsonObject();
+            JsonElement httpRequest = jsonObject.get("httpRequest");
+            if (httpRequest != null) {
+                JsonElement requestUrl = httpRequest.getAsJsonObject().get("requestUrl");
+                if (requestUrl != null)
+                    return requestUrl.getAsString();
+            }
+        }
+        return "No Url found";
     }
 
-    static class ParseFn extends DoFn<String, RequestModel> {
-        @ProcessElement
+    public static String getIP (String element){
+        if (element != null && element != "") {
+            JsonObject jsonObject = new JsonParser().parse(element).getAsJsonObject();
+            JsonElement httpRequest = jsonObject.get("httpRequest");
+            if (httpRequest != null) {
+                JsonElement remoteIp = httpRequest.getAsJsonObject().get("remoteIp");
+                if (remoteIp != null)
+                    return remoteIp.getAsString();
+            }
+        }
+        return "No IP found";
+    }
+
+    static class ParseEventFn extends DoFn<String, RequestModel> {
         public void processElement(@Element String element, OutputReceiver<RequestModel> domainLocation) {
-            RequestJson jsonModel = Parse(element);
-            if (jsonModel != null) {
-                String domain = jsonModel.getDomain();
-                String wky = jsonModel.getWidgetKey();
-                String ip = jsonModel.getIp();
-                CityResponse response = getLocation(ip);
-                if (response != null) {
-                    String country = response.getCountry().getName();
-                    if (country == null) {
-                        country = "Unkown";
-                    }
-                    RequestModel rModel = new RequestModel(domain, country, wky);
-                    domainLocation.output(rModel);
+            String url = getUrl(element);
+            if (url != null && url != "") {
+                Map<String, String> parms = getQueryMap(url);
+                if (parms == null)
+                    System.out.println("Error in parse url parms == null " + url);
+                else if (parms.containsKey("apd") && parms.containsKey("wky")) {
+                    String domain = parms.get("apd");
+                    String wky = parms.get("wky");
+                    String ip = getIP(element);
+                    String country = getLocation(ip).getCountry().getName();
+                    domainLocation.output(new RequestModel(domain, wky, country));
+
+                } else {
+                    System.out.println("Error in parse url not contain apd " + url);
                 }
-                System.out.println("No Response");
             }
         }
     }
-
-    static class RequestModelKey extends DoFn<RequestModel, KV<String, RequestModel>> {
-        @ProcessElement
-        public void processElement(@Element RequestModel rModel, OutputReceiver<KV<String, RequestModel>> data) {
-            data.output(KV.of(rModel.getDomain(), rModel));
+    static class RequestModelKey extends DoFn<RequestModel, KV<String, RequestModel>>{
+        public void processElement(@Element RequestModel rModel, OutputReceiver <KV<String,RequestModel>> data) {
+            data.output(KV.of(rModel.getDomain(),rModel));
         }
     }
 
@@ -81,44 +90,23 @@ public class DomainLocationPipeline {
             extends PTransform<PCollection<String>, PCollection<KV<String, Iterable<RequestModel>>>> {
         @Override
         public PCollection<KV<String, Iterable<RequestModel>>> expand(PCollection<String> httpRequest) {
-            PCollection<RequestModel> data = httpRequest.apply(ParDo.of(new ParseFn()));
+            PCollection<RequestModel> data = httpRequest.apply(ParDo.of(new ParseEventFn()));
             PCollection<KV<String, Iterable<RequestModel>>> urls = applyTransform(data);
             return urls;
         }
+    }
+    static PCollection<KV<String, Iterable<RequestModel>>> applyTransform(PCollection<RequestModel> input) {
+        return input
+                .apply(ParDo.of(new RequestModelKey()))
+                .apply(org.apache.beam.sdk.transforms.GroupByKey.create());
     }
 
     static class FormatAsTextFn extends DoFn<KV<String, Iterable<RequestModel>>, String> {
         @ProcessElement
         public void processElement(@Element KV<String, Iterable<RequestModel>> element, OutputReceiver<String> receiver) {
             List<RequestModel> result = new ArrayList<RequestModel>();
-            Iterable<RequestModel> elementModel = element.getValue();
-            if (elementModel != null) {
-                for (RequestModel rModel : elementModel) {
-                    result.add(rModel);
-                }
-                Map<String, Integer> mapOfWidgetKeys = new HashMap<String, Integer>();
-                Map<String, Integer> mapOfLocations = new HashMap<String, Integer>();
-                for (RequestModel key : result) {
-                    if (key != null) {
-                        if (key.getWidKey() != null) {
-                            if (!mapOfWidgetKeys.containsKey(key.getWidKey())) {
-                                mapOfWidgetKeys.put(key.getWidKey(), 1);
-                            } else {
-                                mapOfWidgetKeys.put(key.getWidKey(), mapOfWidgetKeys.get(key.getWidKey()) + 1);
-                            }
-                        }
-                        if (key.getLocation() != null) {
-                            if (!mapOfLocations.containsKey(key.getLocation())) {
-                                mapOfLocations.put(key.getLocation(), 1);
-                            } else {
-                                if (mapOfLocations.get(key.getLocation()) != null)
-                                    mapOfLocations.put(key.getLocation(), mapOfLocations.get(key.getLocation()) + 1);
-                            }
-                        }
-
-                    }
-                }
-                receiver.output(element.getKey() + ":" + mapOfLocations + "," + mapOfWidgetKeys);
+            for (RequestModel rModel : element.getValue()) {
+                result.add(rModel);
             }
         }
     }

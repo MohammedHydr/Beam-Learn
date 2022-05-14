@@ -1,18 +1,19 @@
-package helpers;
+package pipelines.steps;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.maxmind.geoip2.model.CityResponse;
 import models.RequestJson;
+import org.apache.beam.sdk.transforms.DoFn;
 
 import java.util.Map;
 
 import static helpers.UrlService.getQueryMap;
 
-public class JsonToRequest {
+public class ParseJsonRequests extends DoFn<String, RequestJson> {
+    @ProcessElement
+    public void processElement(@Element String element, OutputReceiver<RequestJson> request) {
 
-    public static RequestJson Parse(String element) {
         if (element != null && element != "") {
             JsonObject jsonObject = new JsonParser().parse(element).getAsJsonObject();
             JsonElement httpRequest = jsonObject.get("httpRequest");
@@ -28,13 +29,12 @@ public class JsonToRequest {
                         String domain = parms.get("apd").toString();
                         String widgetKey = parms.get("wky").toString();
                         RequestJson rJson = new RequestJson(remoteIp.getAsString(), requestUrl.getAsString(), domain, widgetKey);
-                        return rJson;
+                        request.output(rJson);
                     } else {
-                        System.out.println("Error in parse url not contain apd or widgetKey " + requestUrl.getAsString());
+                        System.out.println("Error in parse url not contain apd " + requestUrl.getAsString());
                     }
                 }
             }
         }
-        return null;
     }
 }

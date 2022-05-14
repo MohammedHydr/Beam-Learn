@@ -20,4 +20,3 @@ public class UrlService {
         return map;
     }
 }
-
